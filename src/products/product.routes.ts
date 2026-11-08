@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { applyCampaignDiscount } from "../payment/discounts.js";
+import { applyCampaignDiscount, parseCampaignDiscount } from "../payment/discounts.js";
 import { parsePagination } from "../validation.js";
 import { parseProductInput, parseProductPatch } from "./product.js";
 import type { ProductRepository } from "./product.repository.js";
@@ -22,8 +22,7 @@ export function productRouter(products: ProductRepository): Router {
   });
 
   router.post("/discounts", (req, res) => {
-    const { productIds, percent } = req.body;
-    res.json({ items: applyCampaignDiscount(products, { productIds, percent }) });
+    res.json({ items: applyCampaignDiscount(products, parseCampaignDiscount(req.body)) });
   });
 
   router.patch("/:id", (req, res) => {
