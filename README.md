@@ -28,6 +28,24 @@ npm test
 
 Data is kept in memory. Prices are gross euro cents with 20% VAT included.
 
+## Errors
+
+Every error response has the same shape:
+
+```json
+{ "error": { "code": "validation_error", "message": "Request validation failed", "details": { "name": "must be a non-empty string" } } }
+```
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `validation_error` | The body or query is invalid. `details` names each invalid field |
+| 400 | `invalid_json` | The body is not valid JSON |
+| 404 | `not_found` | The product, order or route does not exist |
+| 409 | `conflict` | The SKU already exists |
+| 409 | `insufficient_stock` | Not enough stock for an order |
+| 409 | `already_cancelled` | The order was cancelled before |
+| 422 | `invalid_coupon` | The coupon code is unknown |
+
 ## AI review
 
 `.github/workflows/ai-review.yml` starts a review task for every new PR. Comment
