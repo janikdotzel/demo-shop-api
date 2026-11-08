@@ -37,6 +37,12 @@ export class ProductRepository {
     if (!this.products.delete(id)) throw notFound("Product", id);
   }
 
+  /** Finds products whose name matches the query (case-insensitive). */
+  search(query: string): Product[] {
+    const pattern = new RegExp(query, "i");
+    return [...this.products.values()].filter((product) => pattern.test(product.name));
+  }
+
   /** Reserves stock for an order. Fails without side effects if stock is insufficient. */
   reserveStock(id: string, quantity: number): Product {
     const product = this.get(id);

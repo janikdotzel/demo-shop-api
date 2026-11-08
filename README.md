@@ -18,6 +18,7 @@ npm test
 |---|---|---|
 | GET | `/health` | Health check |
 | GET | `/products?limit=20&offset=0` | List products |
+| GET | `/products/search?q=tv` | Search products by name |
 | GET | `/products/:id` | Get a product |
 | POST | `/products` | Create a product (`sku`, `name`, `priceCents`, `stock`) |
 | PATCH | `/products/:id` | Update `name`, `priceCents` or `stock` |

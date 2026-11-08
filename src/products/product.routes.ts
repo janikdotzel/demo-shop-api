@@ -29,5 +29,11 @@ export function productRouter(products: ProductRepository): Router {
     res.status(204).end();
   });
 
+  router.get("/search", (req, res) => {
+    const query = String(req.query.q ?? "");
+    const items = products.search(query);
+    res.json({ items, total: items.length });
+  });
+
   return router;
 }
