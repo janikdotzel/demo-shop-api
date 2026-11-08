@@ -4,6 +4,7 @@ import { orderRouter } from "./orders/order.routes.js";
 import { OrderService } from "./orders/order.service.js";
 import { ProductRepository } from "./products/product.repository.js";
 import { productRouter } from "./products/product.routes.js";
+import { APP_VERSION } from "./version.js";
 
 export interface AppDependencies {
   products: ProductRepository;
@@ -21,7 +22,7 @@ export function createApp(deps: AppDependencies = createDependencies()) {
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/health", (_req, res) => {
-    res.json({ status: "ok" });
+    res.json({ status: "ok", version: APP_VERSION });
   });
   app.use("/products", productRouter(deps.products));
   app.use("/orders", orderRouter(deps.orders));

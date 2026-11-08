@@ -16,7 +16,7 @@ npm test
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/health` | Health check |
+| GET | `/health` | Health check with the service version |
 | GET | `/products?limit=20&offset=0` | List products |
 | GET | `/products/:id` | Get a product |
 | POST | `/products` | Create a product (`sku`, `name`, `priceCents`, `stock`) |
