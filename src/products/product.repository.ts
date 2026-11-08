@@ -37,10 +37,13 @@ export class ProductRepository {
     if (!this.products.delete(id)) throw notFound("Product", id);
   }
 
-  /** Finds products whose name matches the query (case-insensitive). */
-  search(query: string): Product[] {
-    const pattern = new RegExp(query, "i");
-    return [...this.products.values()].filter((product) => pattern.test(product.name));
+  /** Finds products whose name contains the query (case-insensitive, literal match). */
+  search(query: string, limit: number, offset: number): { items: Product[]; total: number } {
+    const needle = query.toLowerCase();
+    const matches = [...this.products.values()]
+      .filter((product) => product.name.toLowerCase().includes(needle))
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+    return { items: matches.slice(offset, offset + limit), total: matches.length };
   }
 
   /** Reserves stock for an order. Fails without side effects if stock is insufficient. */
