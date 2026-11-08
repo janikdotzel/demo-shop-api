@@ -1,0 +1,120 @@
+# Starts a review task for the Wonderful PR Review Agent (Backoffice agent).
+#
+# Initial review: every non-draft PR when it is opened or marked ready for review.
+# Re-review:      a maintainer comments "/ai-review" on the PR, or requests a review
+#                 from the bot account set in the repository variable REVIEW_BOT_LOGIN.
+#
+# Security notes:
+# - pull_request_target runs this file from the base branch, so a PR cannot change
+#   the workflow to read the webhook secrets. The workflow never checks out PR code.
+# - PR values reach the script only through environment variables, never through
+#   ${{ }} interpolation inside `run`, so a PR title cannot inject shell code.
+# - Only PRs and comments from OWNER, MEMBER or COLLABORATOR start a task.
+# - Kill switch: add the label "no-ai-review" to a PR, or disable this workflow.
+name: AI review
+
+on:
+  pull_request_target:
+    types: [opened, ready_for_review, review_requested]
+  issue_comment:
+    types: [created]
+
+permissions: {}
+
+concurrency:
+  group: ai-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  initial-review:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      github.event.action != 'review_requested' &&
+      !github.event.pull_request.draft &&
+      github.event.pull_request.user.type != 'Bot' &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.pull_request.author_association) &&
+      !contains(github.event.pull_request.labels.*.name, 'no-ai-review')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create review task in Wonderful
+        env:
+          WEBHOOK_URL: ${{ secrets.WONDERFUL_REVIEW_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WONDERFUL_REVIEW_WEBHOOK_SECRET }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          EVENT: ${{ github.event.action }}
+          ACTOR: ${{ github.actor }}
+          DELIVERY_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          set -euo pipefail
+          jq -n \
+            --arg review_type "initial" \
+            --arg repository "$REPO" \
+            --argjson pr_number "$PR_NUMBER" \
+            --arg head_sha "$HEAD_SHA" \
+            --arg base_ref "$BASE_REF" \
+            --arg pr_url "$PR_URL" \
+            --arg event "pull_request.$EVENT" \
+            --arg requested_by "$ACTOR" \
+            --arg delivery_id "$DELIVERY_ID" \
+            '$ARGS.named' > payload.json
+          cat payload.json
+          curl -fsS --retry 3 --retry-all-errors -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: $WEBHOOK_SECRET" \
+            --data-binary @payload.json
+
+  re-review:
+    if: >-
+      (
+        github.event_name == 'issue_comment' &&
+        github.event.issue.pull_request &&
+        startsWith(github.event.comment.body, '/ai-review') &&
+        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)
+      ) || (
+        github.event_name == 'pull_request_target' &&
+        github.event.action == 'review_requested' &&
+        vars.REVIEW_BOT_LOGIN != '' &&
+        github.event.requested_reviewer.login == vars.REVIEW_BOT_LOGIN
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Create re-review task in Wonderful
+        env:
+          WEBHOOK_URL: ${{ secrets.WONDERFUL_REREVIEW_WEBHOOK_URL }}
+          WEBHOOK_SECRET: ${{ secrets.WONDERFUL_REREVIEW_WEBHOOK_SECRET }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.issue.number }}
+          PR_URL: ${{ github.event.pull_request.html_url || github.event.issue.html_url }}
+          EVENT: ${{ github.event_name }}.${{ github.event.action }}
+          ACTOR: ${{ github.actor }}
+          COMMENT_ID: ${{ github.event.comment.id }}
+          DELIVERY_ID: ${{ github.run_id }}-${{ github.run_attempt }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # issue_comment events do not carry the PR head, so read it from the API.
+          HEAD_SHA=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .head.sha)
+          BASE_REF=$(gh api "repos/$REPO/pulls/$PR_NUMBER" --jq .base.ref)
+          jq -n \
+            --arg review_type "re_review" \
+            --arg repository "$REPO" \
+            --argjson pr_number "$PR_NUMBER" \
+            --arg head_sha "$HEAD_SHA" \
+            --arg base_ref "$BASE_REF" \
+            --arg pr_url "$PR_URL" \
+            --arg event "$EVENT" \
+            --arg requested_by "$ACTOR" \
+            --arg trigger_comment_id "$COMMENT_ID" \
+            --arg delivery_id "$DELIVERY_ID" \
+            '$ARGS.named' > payload.json
+          cat payload.json
+          curl -fsS --retry 3 --retry-all-errors -X POST "$WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -H "X-Webhook-Secret: $WEBHOOK_SECRET" \
+            --data-binary @payload.json
