@@ -20,6 +20,7 @@ npm test
 | GET | `/products?limit=20&offset=0` | List products |
 | GET | `/products/:id` | Get a product |
 | POST | `/products` | Create a product (`sku`, `name`, `priceCents`, `stock`) |
+| POST | `/products/discounts` | Apply a campaign discount (`productIds`, `percent`) |
 | PATCH | `/products/:id` | Update `name`, `priceCents` or `stock` |
 | DELETE | `/products/:id` | Delete a product |
 | POST | `/orders` | Place an order (`items: [{ productId, quantity }]`, optional `couponCode`) |
